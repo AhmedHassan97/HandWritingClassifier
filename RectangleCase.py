@@ -1,4 +1,3 @@
-import detectLines
 from Imports import *
 from detectLines import detect_lines
 
@@ -76,20 +75,19 @@ for box in bounding_boxes:
 EachLineIndividually = np.asarray(EachLineIndividually)
 # print(EachLineIndividually[6].shape)
 
-
 # detecting connected components for each line
 counter = 0
 counterrr = 0
 EachConnectedLineIndividually = []
 avgHeights = []
 maxHeightsSum = 0
-Widths = []
+WidthsforLines = []
 for i in range(count):
     contours = find_contours(EachLineIndividuallyBinarized[i], 0.8)
     bounding_boxes = []
-    maxHeight = 0
+    maxHeightofLine = 0
     avgHeight = 0
-    width = 0
+    sumofWidthsofEachLine = 0
     for contour in contours:
         yMin = min(contour[:, 0])
         yMax = max(contour[:, 0])
@@ -99,28 +97,28 @@ for i in range(count):
         # removing dots and commas
         if area > 1000:
             bounding_boxes.append([int(xMin), int(xMax), int(yMin), int(yMax)])
-            width += int(Xmax - Xmin)
-            if maxHeight < yMax - yMin:
-                maxHeight = int(yMax - yMin)
+            sumofWidthsofEachLine += int(xMax - xMin)
+            if maxHeightofLine < yMax - yMin:
+                maxHeightofLine = int(yMax - yMin)
             avgHeight = avgHeight + int(yMax - yMin)
-    Widths.append(width)
-    maxHeightsSum += maxHeight
+    print(sumofWidthsofEachLine)
+    WidthsforLines.append(sumofWidthsofEachLine)
+    maxHeightsSum = maxHeightsSum + maxHeightofLine
     avgHeights.append(avgHeight // len(bounding_boxes))
     # print(area)
     # print(bounding_boxes)
     # print(len(bounding_boxes))
     img_with_boxes = np.copy(EachLineIndividually[i])
-    ConnectedBlocks = np.ones(EachLineIndividually[i].shape) * 255
+    ConnectedBlocks = np.ones(EachLineIndividually[i].shape)*255
 
     previousX = 0
     Width = 0
-    Height = maxHeight
     for box in bounding_boxes:
         [Xmin, Xmax, Ymin, Ymax] = box
         rr, cc = rectangle(start=(Ymin, Xmin), end=(Ymax, Xmax), shape=EachLineIndividually[i].shape)
         img_with_boxes[rr, cc] = 0
 
-        Begining = abs(int((Ymax - Ymin) / 2) - int(Height / 2))
+        Begining = abs(int((Ymax - Ymin) / 2) - int(maxHeightofLine / 2))
         ############################
         img_with_boxes_Inverted = 1 - img_with_boxes
         stored = img_with_boxes_Inverted * EachLineIndividually[i]
@@ -134,7 +132,7 @@ for i in range(count):
                                                                                               Xmin:Xmax]
         previousX += Xmax - Xmin
         Width = previousX
-    ConnectedBlocks = ConnectedBlocks[0:Height, 0:Width]
+    ConnectedBlocks = ConnectedBlocks[0:maxHeightofLine, 0:Width]
     # show_images([stored[Ymin:Ymax,Xmin:Xmax]], ['Image With Bounding Boxes'])
     EachConnectedLineIndividually.append(ConnectedBlocks)
 
@@ -142,14 +140,20 @@ for i in range(count):
     # show_images([1-img_with_boxes], ['Image With Bounding Boxes'])
     show_images([EachConnectedLineIndividually[i]], ['Lines with connected components and no horizontal spaces'])
 
+
+
+
 # Super Texture Block Generation
-superTextureBlock = np.ones((maxHeightsSum, np.max(Widths)))
+superTextureBlock = np.ones((maxHeightsSum, np.max(WidthsforLines)))
 print(superTextureBlock.shape)
 yprevious = 150
+Begining2 = 0
 for i in range(count):
     Begining2 = abs(int((EachConnectedLineIndividually[i].shape[0]) / 2) - int(yprevious / 2))
     superTextureBlock[Begining2:EachConnectedLineIndividually[i].shape[0] + Begining2,
-    0:EachConnectedLineIndividually[i].shape[1]] *= EachConnectedLineIndividually[i]
+    0:EachConnectedLineIndividually[i].shape[1]] = EachConnectedLineIndividually[i]
     yprevious = yprevious + avgHeights[i] / 2
 
-show_images([superTextureBlock], ['Lines with connected components and no horizontal spaces'])
+# print(superTextureBlock[0:int(EachConnectedLineIndividually[-1].shape[0] + Begining2),:].shape)
+show_images([superTextureBlock[0:int(EachConnectedLineIndividually[-1].shape[0] + Begining2), :]],
+            ['Lines with connected components and no horizontal spaces'])

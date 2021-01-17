@@ -36,6 +36,6 @@ def detect_lines(image, min_angle=60, max_angle=90, start=-np.pi / 2, end=np.pi 
     ax[1].set_axis_off()
     ax[1].set_title('Detected lines')
 
-    plt.tight_layout()
-    plt.show()
+    # plt.tight_layout()
+    # plt.show()
     return coordinates
