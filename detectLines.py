@@ -25,7 +25,7 @@ def detect_lines(image, min_angle=60, max_angle=90, start=-np.pi / 2, end=np.pi 
 
     for _, angle, dist in zip(*hough_line_peaks(h, theta, d)):
 
-        if (angle >= (min_angle * np.pi) / 180 and angle <= (max_angle * np.pi) / 180):
+        if angle >= (min_angle * np.pi) / 180 and angle <= (max_angle * np.pi) / 180:
             y0, y1 = (dist - origin * np.cos(angle)) / np.sin(angle)
             coordinates.append(y0)
             coordinates.append(y1)
@@ -36,6 +36,6 @@ def detect_lines(image, min_angle=60, max_angle=90, start=-np.pi / 2, end=np.pi 
     ax[1].set_axis_off()
     ax[1].set_title('Detected lines')
 
-    # plt.tight_layout()
-    # plt.show()
+    plt.tight_layout()
+    plt.show()
     return coordinates
