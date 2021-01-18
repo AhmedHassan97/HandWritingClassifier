@@ -8,7 +8,7 @@ from skimage.transform import hough_line, hough_line_peaks
 
 def detect_lines(image, min_angle=60, max_angle=90, start=-np.pi / 2, end=np.pi / 2, percision_total=360):
     coordinates = []
-    if (len(image.shape) > 2):
+    if len(image.shape) > 2:
         image = rgb2gray(image)
     edges = canny(image)
     tested_angles = np.linspace(start, end, percision_total)
@@ -36,6 +36,6 @@ def detect_lines(image, min_angle=60, max_angle=90, start=-np.pi / 2, end=np.pi 
     ax[1].set_axis_off()
     ax[1].set_title('Detected lines')
 
-    plt.tight_layout()
-    plt.show()
+    # plt.tight_layout()
+    # plt.show()
     return coordinates

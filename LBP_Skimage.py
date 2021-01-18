@@ -15,7 +15,7 @@ def lbp_features(img):
 
     # lbp retorna um matriz com os códigos, então devemos extraír o histograma
     (hist, _) = np.histogram(lbp.ravel(), bins=np.arange(0, 8 + 3), range=(0, 8 + 2))
-
+    print(hist,"hist")
     # normaliza o histogram
     hist = hist.astype("float")
     hist /= (hist.sum() + 1e-6)
@@ -33,13 +33,13 @@ def Euclidean_distance(v, u):
 # io.show()
 
 
-# img1 = io.imread("a.png")
-# img2 = io.imread("a01-003.png")
-#
-# lbp1 = lbp_features(img1)
-# lbp2 = lbp_features(img2)
-#
-# dQ2_H = Euclidean_distance(lbp1, lbp2)
-# print(dQ2_H)
+img1 = io.imread("images/a01-000u.png")
+img2 = io.imread("images/a01-003.png")
+
+lbp1 = lbp_features(img1)
+lbp2 = lbp_features(img2)
+
+dQ2_H = Euclidean_distance(lbp1, lbp2)
+print(dQ2_H)
 
 #

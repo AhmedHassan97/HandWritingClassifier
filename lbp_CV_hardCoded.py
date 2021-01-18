@@ -40,22 +40,19 @@ def lbp_calculated_center_pixel(img, x, y):
     return val
 
 
-def lbp(img):
-    height, width, _ = img.shape
-    img_gray = cv2.cvtColor(img,
-                            cv2.COLOR_BGR2GRAY)
+def lbp(img_gray):
+    height, width = img_gray.shape
+    # img_gray = cv2.cvtColor(img,
+    #                         cv2.COLOR_BGR2GRAY)
     img_lbp = np.zeros((height, width),
                        np.uint8)
     for i in range(0, height):
         for j in range(0, width):
             img_lbp[i, j] = lbp_calculated_center_pixel(img_gray, i, j)
+    # print(img_lbp)
+    hestoImage = histogram(img_lbp, nbins=8)
 
-    (hist, _) = np.histogram(img_lbp.ravel(), bins=np.arange(0, 8 + 3), range=(0, 8 + 2))
-
-    hist = hist.astype("float")
-    hist /= (hist.sum() + 1e-6)
-
-    return hist
+    return hestoImage
 
 
 def Euclidean_distance(v, u):
