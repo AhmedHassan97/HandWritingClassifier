@@ -2,36 +2,26 @@ from Imports import *
 from detectLines import detect_lines
 
 
-def GetTextureBlock(imageName):
-    # read image
-    img = io.imread(imageName)
-    img = rgb2gray(img)
-
-    # ------------------------------------------------
-    # cropping
-    linePoints = detect_lines(img)
-    linePoints.append(int(img.shape[0] / 2))
-    linePoints = np.sort(linePoints)
-    indexOfCentre = np.where(linePoints == (int(img.shape[0] / 2)))
-    # print(indexOfCentre[0])
-    indexBefore = indexOfCentre[0] - 1
-    indexAfter = indexOfCentre[0] + 1
-
-    cropped = img[int(linePoints[indexBefore]) + 2:int(linePoints[indexAfter]) - 2, 50:]
-
+def GetTextureBlock(img):
+    grey = rgb2gray(img)
+    thr = threshold_otsu(grey)
+    croppedBinarized = np.copy(grey)
+    croppedBinarized[grey < thr] = 0
+    croppedBinarized[grey >= thr] = 1
+    temporary = []
+    temporary = detect_lines(croppedBinarized)
+    Upper = temporary[-2]
+    Lower = temporary[-1]
+    cropped = grey[Upper + 5:Lower - 5, 50:]
+    croppedBinarized = croppedBinarized[Upper + 5:Lower - 5, 50:]
     # ------------------------------------------------
 
-    thr = threshold_otsu(cropped)
-    croppedBinarized = np.copy(cropped)
-    croppedBinarized[cropped < thr] = 0
-    croppedBinarized[cropped >= thr] = 1
     croppedBinarized = 1 - croppedBinarized
     kernel = np.ones((1, 150), np.uint8)
     dilatedImage = cv2.dilate(croppedBinarized, kernel, iterations=1)
     closingImage = cv2.erode(dilatedImage, kernel, iterations=1)
     croppedBinarized = 1 - croppedBinarized
     closingImage = 1 - closingImage
-    # show_images([closingImage, croppedBinarized, cropped], ['Image After Closing', 'cropped Binarized', 'Cropped'])
 
     # dividing cropped image into lines
     img_gray = np.copy(closingImage)
@@ -48,6 +38,7 @@ def GetTextureBlock(imageName):
         # removing artifacts
         if area > 10000:
             bounding_boxes.append([int(xMin), int(xMax), int(yMin), int(yMax)])
+            # print(area)
     img_with_boxes = np.copy(img_gray)
 
     EachLineIndividually = []
@@ -60,17 +51,13 @@ def GetTextureBlock(imageName):
         tempcoordBinarized = croppedBinarized[Ymin:Ymax, Xmin:Xmax]
 
         tempcoordMultipliedByBinarized = tempcoord * (1 - tempcoordBinarized)
-        # show_images([tempcoordMultipliedByBinarized], ['Single line binarized'])
-        if tempcoord.shape[0] * tempcoord.shape[1] > 60000:
+
+        if (tempcoord.shape[0] * tempcoord.shape[1] > 40000):
             EachLineIndividually.append(tempcoordMultipliedByBinarized)
             EachLineIndividuallyBinarized.append(tempcoordBinarized)
-            # print(tempcoord.shape)
             count += 1
     EachLineIndividually = np.asarray(EachLineIndividually)
-    # for i in range(count):
-        # show_images([EachLineIndividually[i]], ['Single line'])
 
-    # detecting connected components for each line and centering them and removing horizontal spaces
     countNew = 0
     EachConnectedLineIndividually = []
     avgHeights = []
@@ -91,14 +78,9 @@ def GetTextureBlock(imageName):
             xMax = max(contour[:, 1])
             area = abs(xMax - xMin) * abs(yMax - yMin)
             # removing dots and commas
-            if area > 1000:
+            if area > 100:
                 bounding_boxes.append([int(xMin), int(xMax), int(yMin), int(yMax)])
 
-        # bounding_boxes=np.sort(bounding_boxes)
-        # print("aaaaaaaaaaaaaaaaaaaaaaaaaaa")
-        # print(area)
-        # print(bounding_boxes)
-        # print(len(bounding_boxes))
         img_with_boxes = np.copy(EachLineIndividually[i])
         ConnectedBlocks = np.zeros(EachLineIndividually[i].shape)
 
@@ -121,7 +103,7 @@ def GetTextureBlock(imageName):
             img_with_boxes_Inverted = 1 - img_with_boxes
             stored = img_with_boxes_Inverted * EachLineIndividually[i]
             #################################if more than one line is detected
-            if (Xmax - Xmin + previousX > ConnectedBlocks.shape[1]):
+            if Xmax - Xmin + previousX > ConnectedBlocks.shape[1]:
                 # print("aaaaaaaaaa")
                 ConnectedBlocks = ConnectedBlocks[0:maxHeightofLine, 0:Width]
                 EachConnectedLineIndividually.append(ConnectedBlocks)
@@ -136,12 +118,13 @@ def GetTextureBlock(imageName):
                 maxHeightofLine = 0
                 avgHeight = 0
                 countForAvgheight = 0
+            #################################
             ConnectedBlocks[Begining:Ymax - Ymin + Begining, previousX:Xmax - Xmin + previousX] = stored[Ymin:Ymax,
                                                                                                   Xmin:Xmax]
             previousX += Xmax - Xmin
             Width = previousX
         ConnectedBlocks = ConnectedBlocks[0:maxHeightofLine, 0:Width]
-        if ConnectedBlocks.shape[0] * ConnectedBlocks.shape[1] > 60000:
+        if ConnectedBlocks.shape[0] * ConnectedBlocks.shape[1] > 10000:
             EachConnectedLineIndividually.append(ConnectedBlocks)
             countNew += 1
             maxHeightsforLines.append(maxHeightofLine)
@@ -149,14 +132,7 @@ def GetTextureBlock(imageName):
             avgHeights.append(avgHeight / int(countForAvgheight + 1))
             WidthsforLines.append(sumofWidthsofEachLine)
 
-    # print(countNew, count)
-    # for i in range(countNew):
-    #     show_images([EachConnectedLineIndividually[i]], ['Lines with connected components and no horizontal spaces'])
-        # print(EachConnectedLineIndividually[i].shape)
-
-    # Super Texture Block Generation
     superTextureBlock = np.ones((maxHeightsSum, np.max(WidthsforLines)))
-    # print(superTextureBlock.shape)
     yprevious = 150
     Begining2 = 0
     for i in range(countNew):
@@ -164,36 +140,41 @@ def GetTextureBlock(imageName):
 
         superTextureBlock[Begining2:EachConnectedLineIndividually[i].shape[0] + Begining2,
         0:EachConnectedLineIndividually[i].shape[1]][EachConnectedLineIndividually[i] == 0] = \
-        superTextureBlock[Begining2:EachConnectedLineIndividually[i].shape[0] + Begining2,
-        0:EachConnectedLineIndividually[i].shape[1]][EachConnectedLineIndividually[i] == 0]
+            superTextureBlock[Begining2:EachConnectedLineIndividually[i].shape[0] + Begining2,
+            0:EachConnectedLineIndividually[i].shape[1]][EachConnectedLineIndividually[i] == 0]
 
         superTextureBlock[Begining2:EachConnectedLineIndividually[i].shape[0] + Begining2,
         0:EachConnectedLineIndividually[i].shape[1]][EachConnectedLineIndividually[i] != 0] = \
-        EachConnectedLineIndividually[i][EachConnectedLineIndividually[i] != 0]
+            EachConnectedLineIndividually[i][EachConnectedLineIndividually[i] != 0]
+
         yprevious = yprevious + avgHeights[i] / 2
 
-    # show_images([superTextureBlock[0:int(EachConnectedLineIndividually[-1].shape[0] + Begining2), :]],
-    #             ['Lines with connected components and no horizontal spaces'])
     superTextureBlock = superTextureBlock[0:int(EachConnectedLineIndividually[-1].shape[0] + Begining2), :]
 
-    # Getting 9 texture blocks
-    # print(maxHeightsforLines)
-
     start = int(150 / 2) - int(maxHeightsforLines[0] / 2)
+    if start < 0:
+        start = 0
     end = int(yprevious) - int(avgHeights[-1] / 2) + start + int(maxHeightsforLines[-1] / 2)
 
-    superTextureBlock = superTextureBlock[start:end, :]
-    # show_images([superTextureBlock], ['Super'])
+    superTextureBlock = superTextureBlock[0:end, :]
     supertextureBlockCopy = np.copy(superTextureBlock)
     textureCounter = 0
     textureBlocks = []
-    aspectRatio = (supertextureBlockCopy.shape[1]) / (supertextureBlockCopy.shape[0])
-    supertextureBlockCopy = resize(supertextureBlockCopy, (2 * 128, int(aspectRatio * 2 * 128)), anti_aliasing=False)
 
-    # print(supertextureBlockCopy.shape,"shaaaaape")
+    aspectRatio = (supertextureBlockCopy.shape[1]) / (supertextureBlockCopy.shape[0])
+
+    supertextureBlockCopy1 = resize(supertextureBlockCopy, (int((9 * 256) / (aspectRatio)), 9 * 256),
+                                    anti_aliasing=False)
+
+    if supertextureBlockCopy1.shape[0] < 256:
+        supertextureBlockCopy1 = resize(supertextureBlockCopy, (256, int((256) * (aspectRatio))), anti_aliasing=False)
+
+    if supertextureBlockCopy1.shape[1] < 9 * 256:
+        supertextureBlockCopy1 = resize(supertextureBlockCopy, (256, 9 * 256), anti_aliasing=False)
+
+    supertextureBlockCopy = supertextureBlockCopy1
+
     textureHeight = int(np.floor(supertextureBlockCopy.shape[0] / 2))
-    # show_images([supertextureBlockCopy], ['Super'])
-    # print(supertextureBlockCopy.shape)
     for i in range(4):
         textureBlocks.append(
             supertextureBlockCopy[textureHeight - 128:textureHeight, textureCounter:textureCounter + 256])
@@ -203,7 +184,4 @@ def GetTextureBlock(imageName):
 
     textureBlocks.append(supertextureBlockCopy[textureHeight - 128:textureHeight, textureCounter:textureCounter + 256])
 
-    show_images(textureBlocks)
     return textureBlocks
-
-# GetTextureBlock('a01-000u.png')

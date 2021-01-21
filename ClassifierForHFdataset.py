@@ -3,12 +3,9 @@ from Imports import *
 from lbp_CV_hardCoded import *
 from RectangleCase import *
 from ReadHFdataset import *
+from LBP_Skimage import *
+import time
 
-path_to_dataset = r'data'
-target_img_size = (32, 32)  # fix image size because classification algorithms THAT WE WILL USE HERE expect that
-
-# We are going to fix the random seed to make our experiments reproducible
-# since some algorithms use pseudorandom generators
 random_seed = 42
 random.seed(random_seed)
 np.random.seed(random_seed)
@@ -16,22 +13,11 @@ np.random.seed(random_seed)
 
 def extract_lbp_histogram(imgName):
     blocks = GetTextureBlock(imgName)
-    listofHists =np.array([])
+    listofHists = []
 
     for i in blocks:
         hist = lbp(i)
-        listofHists = np.concatenate((listofHists, hist[0]))
-    listofHists=listofHists/listofHists.sum() + 0.00000000000000000001
-    # listofHists = listofHists.reshape(1,-1)
-    print(listofHists.shape)
-    print(listofHists,"dataset")
-    # for i in range(9):
-    #     copy=np.copy(listofHists[i][0])
-    #     copy=np.reshape(copy,(256,1))
-    #     print(copy.shape)
-    # np.array(listofHists[0])
-    # # np.mean()
-    # print([listofHists[0][0].shape])
+        listofHists.append(hist)
     return listofHists
 
 
@@ -41,16 +27,31 @@ def extract_features(img, feature_set='lbp-histogram'):
 
 def load_dataset(case, feature_set='lbp-histogram'):
     features = []
-    labels = [1, 1, 2, 2, 3, 3]
-
+    labels = []
+    count = 0
+    writer = 1
     for i in case:
-        features.append(extract_features(i, feature_set))
+        if count == 2:
+            count=0
+            writer += 1
+        count += 1
+        errorCounter = 0
+        try:
+            blocks = extract_features(i, feature_set)
+            for j in blocks:
+                if j.shape == (256,):
+                    features.append(j)
+                    labels.append(writer)
+                    errorCounter += 1
+        except:
+            print("exception")
+            pass
 
     return features, labels
 
 
 classifiers = {
-    'SVM': svm.LinearSVC(random_state=random_seed,dual=True,max_iter=1000000,C=100)
+    'SVM': svm.LinearSVC(random_state=random_seed, dual=True, max_iter=1000000, C=300)
 }
 
 
@@ -58,31 +59,51 @@ classifiers = {
 def run_experiment(testCase, case, feature_set):
     # Load dataset with extracted features
     print('Loading dataset. This will take time ...')
-    train_features, train_labels = load_dataset(case, feature_set)
-    print('Finished loading dataset.')
 
+    CasesImage = []
+    for element in case:
+        CasesImage.append(io.imread(element))
+    testCaseImage = io.imread(testCase)
+
+    start = time.time()
+
+    train_features, train_labels = load_dataset(CasesImage, feature_set)
+    print('Finished loading dataset.')
     for model_name, model in classifiers.items():
         print('############## Training', model_name, "##############")
         # Train the model only on the training features
         model.fit(train_features, train_labels)
 
-        blocks = GetTextureBlock(testCase)
-        listofHists = np.array([])
+        blocks = GetTextureBlock(testCaseImage)
+        listofHists = []
         for i in blocks:
             hist = lbp(i)
-            listofHists = np.concatenate((listofHists, hist[0]))
-        listofHists = listofHists.reshape(1, -1)
-        listofHists = listofHists / listofHists.sum() + 0.00000000000000000001
-        print(listofHists.shape)
-        print(listofHists)
-        result = model.predict(listofHists)
+            if hist.shape == (256,):
+                listofHists.append(hist)
+        result = []
+        for i in listofHists:
+            result.append(model.predict(np.reshape(i, (1, -1)))[0])
+
+        result = np.asarray(result)
+        writer = [np.sum(result == 1), np.sum(result == 2), np.sum(result == 3)]
+
         print(result, "SVM Result")
+        end = time.time()
+        f = open("results.txt", "a")
+        f.write(str(np.argmax(writer) + 1)+"\n")
+        f.close()
+        f = open("time.txt", "a")
+        f.write(str(round((end - start),2))+"\n")
+        f.close()
+
+        print("Time:", str(round((end - start),2)))
 
 
 Cases, testCases = LoadCases()
 count = 0
+trueClassification = 0
 for i in Cases:
-    print(testCases[0])
+    print(count, "case Number")
     run_experiment(testCases[count], i, 'lbp-histogram')
     count += 1
-    break
+
